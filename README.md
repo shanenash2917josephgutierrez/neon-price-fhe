@@ -66,7 +66,7 @@ Create a \`.env\` file in the root directory:
 
 \`\`\`bash
 # Project Information
-PROJECT_NAME=价格预测游戏
+PROJECT_NAME=PriceGuess - FHE Price Prediction Game
 PROJECT_EN_NAME=PriceGuess
 PROJECT_INDEX=8
 
@@ -177,9 +177,24 @@ Visit http://localhost:5173 to see the application.
 │   └── package.json            # Backend dependencies
 │
 ├── docs/                        # Documentation
-│   ├── FRONTEND_DEV.md         # Frontend development guide
-│   └── BACKEND_DEV.md          # Backend development guide
+│   ├── reports/                # Test and deployment reports
+│   │   ├── E2E_TEST_REPORT.md
+│   │   ├── DEPLOYMENT_TESTING_SUMMARY.md
+│   │   ├── WALLET_CONNECTION_TEST_REPORT.md
+│   │   ├── FINAL_TEST_SUMMARY.md
+│   │   └── FRONTEND_OPTIMIZATION_SUMMARY.md
+│   ├── guides/                 # Development guides
+│   │   ├── FRONTEND_DEV.md
+│   │   ├── BACKEND_DEV.md
+│   │   ├── CONTRACT_LOGIC_ANALYSIS.md
+│   │   ├── GIT_USAGE_GUIDE.md
+│   │   ├── FEATURE_UPDATE_SUMMARY.md
+│   │   ├── FIXES_APPLIED.md
+│   │   ├── COMPLETED_TASKS_SUMMARY.md
+│   │   └── PROJECT_STATUS_SUMMARY.md
+│   └── README.md               # Documentation index
 │
+├── tests/                       # Test files (future E2E tests)
 ├── .env                         # Environment variables
 ├── package.json                 # Frontend dependencies
 ├── vite.config.ts              # Vite configuration
