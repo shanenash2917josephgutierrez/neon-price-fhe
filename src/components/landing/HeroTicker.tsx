@@ -1,10 +1,72 @@
 import { motion } from 'framer-motion';
-import { TrendingUp, Lock, Zap } from 'lucide-react';
+import { TrendingUp, Lock, Zap, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { fetchPrice, type PriceData } from '@/services/binanceApi';
 
 // Hero section with animated price ticker and CTAs
 export const HeroTicker = () => {
+  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchInitialPrice = async () => {
+      try {
+        setIsLoading(true);
+        const data = await fetchPrice('BTCUSDT');
+        if (isMounted) {
+          setPriceData(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Failed to fetch price:', err);
+          setError('Failed to load price');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchInitialPrice();
+
+    // Update price every 10 seconds
+    const interval = setInterval(() => {
+      fetchPrice('BTCUSDT')
+        .then(data => {
+          if (isMounted) {
+            setPriceData(data);
+            setError(null);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to update price:', err);
+        });
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(price);
+  };
+
+  const isPositiveChange = priceData && priceData.changePercent24h > 0;
+
   return (
     <section className="relative min-h-screen flex items-center justify-center px-4 py-20">
       <div className="max-w-6xl mx-auto text-center space-y-8">
@@ -33,10 +95,30 @@ export const HeroTicker = () => {
           <div className="flex items-center justify-center gap-4 mb-4">
             <TrendingUp className="w-8 h-8 text-secondary" />
             <span className="text-4xl md:text-6xl font-mono font-bold text-secondary">
-              $42,879.24
+              {isLoading ? (
+                <span className="animate-pulse">Loading...</span>
+              ) : error ? (
+                <span className="text-destructive text-2xl">Price unavailable</span>
+              ) : priceData ? (
+                formatPrice(priceData.price)
+              ) : (
+                '$--,---.--'
+              )}
             </span>
           </div>
-          <div className="text-sm text-muted-foreground font-mono">BTC/USD LIVE</div>
+          <div className="flex items-center justify-center gap-2 text-sm font-mono">
+            <span className="text-muted-foreground">BTC/USD LIVE</span>
+            {priceData && !isLoading && !error && (
+              <span className={`flex items-center gap-1 ${isPositiveChange ? 'text-secondary' : 'text-destructive'}`}>
+                {isPositiveChange ? (
+                  <ArrowUp className="w-3 h-3" />
+                ) : (
+                  <ArrowDown className="w-3 h-3" />
+                )}
+                {Math.abs(priceData.changePercent24h).toFixed(2)}%
+              </span>
+            )}
+          </div>
         </motion.div>
 
         {/* Feature highlights */}
