@@ -17,10 +17,11 @@
  * @component
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Wallet, AlertCircle, CheckCircle } from 'lucide-react';
 import { parseEther, keccak256, toUtf8Bytes } from 'ethers';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,10 @@ export const BetPanel = ({
   // Hooks
   const { toast } = useToast();
   const { placeGuess, isPending, isConfirming, isConfirmed, hash } = usePlaceGuess();
+  const navigate = useNavigate();
+
+  // Track the last confirmed transaction to avoid duplicate toasts
+  const lastConfirmedHash = useRef<string | undefined>(undefined);
 
   /**
    * Handle Bet Placement
@@ -214,15 +219,27 @@ export const BetPanel = ({
   // Success Handling
   // ============================================
   // Show success message when transaction is confirmed on-chain
-  if (isConfirmed) {
-    setTimeout(() => {
+  // Use useEffect to ensure toast only shows once per transaction
+  useEffect(() => {
+    if (isConfirmed && hash && hash !== lastConfirmedHash.current) {
+      // Update the last confirmed hash to prevent duplicate toasts
+      lastConfirmedHash.current = hash;
+
+      // Show success toast
       toast({
         title: '✅ Prediction Submitted!',
         description: `Successfully placed ${betAmount} ETH bet on range $${lowerBound.toFixed(2)} - $${upperBound.toFixed(2)}`,
       });
-      setBetAmount(''); // Clear input after success
-    }, 100);
-  }
+
+      // Clear input after success
+      setBetAmount('');
+
+      // Navigate to My Positions page after 1.5 seconds
+      setTimeout(() => {
+        navigate('/positions');
+      }, 1500);
+    }
+  }, [isConfirmed, hash, betAmount, lowerBound, upperBound, toast, navigate]);
 
   // Determine if any operation is in progress
   const isProcessing = isPending || isEncrypting || isConfirming;
@@ -260,17 +277,10 @@ export const BetPanel = ({
 
           <div className="border-t border-border/50 pt-3">
             <div className="text-xs text-muted-foreground font-mono mb-1">
-              EXPIRES ON
+              EXPIRES ON (UTC 00:00)
             </div>
             <div className="font-mono text-sm text-primary">
-              {new Date(expiryTimestamp * 1000).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              })}
+              {new Date(expiryTimestamp * 1000).toUTCString().split(' ').slice(0, 4).join(' ')}
             </div>
             <div className="text-xs text-muted-foreground font-mono mt-1">
               {Math.floor((expiryTimestamp - Date.now() / 1000) / 3600)} hours from now

@@ -11,25 +11,26 @@ interface RangeSelectorProps {
   onRangeSelect: (lower: number, upper: number, expiryTimestamp: number) => void;
 }
 
-// Helper function to get minimum datetime (current time + 1 hour)
-const getMinDateTime = () => {
-  const now = new Date();
-  now.setHours(now.getHours() + 1);
-  return now.toISOString().slice(0, 16);
+// Helper function to get minimum date (tomorrow in UTC)
+const getMinDate = () => {
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const year = tomorrow.getUTCFullYear();
+  const month = String(tomorrow.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(tomorrow.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
-// Helper function to get default datetime (tomorrow at same time)
-const getDefaultDateTime = () => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().slice(0, 16);
+// Helper function to get default date (tomorrow in UTC)
+const getDefaultDate = () => {
+  return getMinDate();
 };
 
 // Range selector for price predictions with validation
 export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProps) => {
   const [lowerBound, setLowerBound] = useState<string>('');
   const [upperBound, setUpperBound] = useState<string>('');
-  const [expiryDateTime, setExpiryDateTime] = useState<string>(getDefaultDateTime());
+  const [expiryDate, setExpiryDate] = useState<string>(getDefaultDate());
   const [error, setError] = useState<string>('');
 
   const handleSubmit = () => {
@@ -52,29 +53,41 @@ export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProp
       return;
     }
 
-    // Validation - Expiry datetime
-    if (!expiryDateTime) {
-      setError('Please select an expiry date and time');
+    // Validation - Expiry date
+    if (!expiryDate) {
+      setError('Please select an expiry date');
       return;
     }
 
-    const expiryTimestamp = new Date(expiryDateTime).getTime();
+    // Convert selected date to UTC midnight (00:00:00)
+    const [year, month, day] = expiryDate.split('-').map(Number);
+    const expiryUTC = Date.UTC(year, month - 1, day, 0, 0, 0, 0);
     const now = Date.now();
-    const oneHourFromNow = now + (60 * 60 * 1000);
 
-    if (expiryTimestamp < oneHourFromNow) {
-      setError('Expiry time must be at least 1 hour from now');
+    // Get tomorrow's UTC midnight for minimum validation
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    const tomorrowUTC = Date.UTC(
+      tomorrow.getUTCFullYear(),
+      tomorrow.getUTCMonth(),
+      tomorrow.getUTCDate(),
+      0, 0, 0, 0
+    );
+
+    if (expiryUTC < tomorrowUTC) {
+      setError('Expiry date must be at least tomorrow (UTC 00:00)');
       return;
     }
 
     const oneYearFromNow = now + (365 * 24 * 60 * 60 * 1000);
-    if (expiryTimestamp > oneYearFromNow) {
-      setError('Expiry time cannot be more than 1 year from now');
+    if (expiryUTC > oneYearFromNow) {
+      setError('Expiry date cannot be more than 1 year from now');
       return;
     }
 
     setError('');
-    onRangeSelect(lower, upper, Math.floor(expiryTimestamp / 1000));
+    // Convert to Unix timestamp (seconds)
+    onRangeSelect(lower, upper, Math.floor(expiryUTC / 1000));
   };
 
   const spread = upperBound && lowerBound ? 
@@ -133,23 +146,23 @@ export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProp
           </div>
         </div>
 
-        {/* Expiry datetime selector */}
+        {/* Expiry date selector */}
         <div className="space-y-2">
           <Label htmlFor="expiry" className="font-mono text-sm flex items-center gap-2">
             <Calendar className="w-4 h-4 text-primary" />
             <Clock className="w-4 h-4 text-primary" />
-            PREDICTION EXPIRY DATE & TIME
+            PREDICTION EXPIRY DATE (UTC 00:00)
           </Label>
           <Input
             id="expiry"
-            type="datetime-local"
-            value={expiryDateTime}
-            min={getMinDateTime()}
-            onChange={(e) => setExpiryDateTime(e.target.value)}
+            type="date"
+            value={expiryDate}
+            min={getMinDate()}
+            onChange={(e) => setExpiryDate(e.target.value)}
             className="font-mono border-2 border-muted focus:border-primary"
           />
           <p className="text-xs text-muted-foreground font-mono">
-            Select when your prediction should be settled (minimum: 1 hour from now)
+            Prediction will expire at UTC midnight (00:00) of selected date
           </p>
         </div>
 

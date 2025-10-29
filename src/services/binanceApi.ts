@@ -1,42 +1,41 @@
 /**
- * Binance API Service
+ * Cryptocurrency Price API Service
  *
- * Fetches real-time cryptocurrency price data from Binance public API
+ * Fetches real-time cryptocurrency price data from CoinGecko public API
  *
  * Features:
- * - Real-time BTC/USDT price
- * - 24h price change percentage
+ * - Real-time BTC/USD price
+ * - 24h price change percentage and volume
  * - Error handling and retry logic
  * - TypeScript type safety
+ * - No API key required
  *
  * @module services/binanceApi
  */
 
 /**
- * Binance API ticker response type
+ * CoinGecko API response type for detailed coin data
  */
-export interface BinanceTicker {
+export interface CoinGeckoResponse {
+  id: string;
   symbol: string;
-  priceChange: string;
-  priceChangePercent: string;
-  weightedAvgPrice: string;
-  prevClosePrice: string;
-  lastPrice: string;
-  lastQty: string;
-  bidPrice: string;
-  bidQty: string;
-  askPrice: string;
-  askQty: string;
-  openPrice: string;
-  highPrice: string;
-  lowPrice: string;
-  volume: string;
-  quoteVolume: string;
-  openTime: number;
-  closeTime: number;
-  firstId: number;
-  lastId: number;
-  count: number;
+  name: string;
+  market_data: {
+    current_price: {
+      usd: number;
+    };
+    price_change_24h: number;
+    price_change_percentage_24h: number;
+    high_24h: {
+      usd: number;
+    };
+    low_24h: {
+      usd: number;
+    };
+    total_volume: {
+      usd: number;
+    };
+  };
 }
 
 /**
@@ -54,12 +53,25 @@ export interface PriceData {
 }
 
 /**
- * Binance API base URL
+ * CoinGecko API base URL
+ * Using Vite proxy to bypass CORS restrictions in development
+ * Production builds should use direct API or backend proxy
  */
-const BINANCE_API_BASE = 'https://api.binance.com/api/v3';
+const CRYPTO_API_BASE = '/api/crypto/api/v3';
 
 /**
- * Fetch current price for a specific trading pair
+ * Map trading symbols to CoinGecko IDs
+ */
+const SYMBOL_TO_COINGECKO_ID: Record<string, string> = {
+  'BTCUSDT': 'bitcoin',
+  'ETHUSDT': 'ethereum',
+  'BNBUSDT': 'binancecoin',
+  'SOLUSDT': 'solana',
+  'ADAUSDT': 'cardano',
+};
+
+/**
+ * Fetch current price for a specific cryptocurrency
  *
  * @param symbol - Trading pair symbol (e.g., 'BTCUSDT')
  * @returns Promise<PriceData> - Current price data
@@ -73,40 +85,45 @@ const BINANCE_API_BASE = 'https://api.binance.com/api/v3';
  */
 export async function fetchPrice(symbol: string = 'BTCUSDT'): Promise<PriceData> {
   try {
-    console.log(`[Binance API] Fetching price for ${symbol}...`);
+    // Convert symbol to CoinGecko ID
+    const coinId = SYMBOL_TO_COINGECKO_ID[symbol] || 'bitcoin';
+    console.log(`[Crypto API] Fetching price for ${symbol} (${coinId})...`);
 
-    const response = await fetch(`${BINANCE_API_BASE}/ticker/24hr?symbol=${symbol}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${CRYPTO_API_BASE}/coins/${coinId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`Binance API error: ${response.status} ${response.statusText}`);
+      throw new Error(`CoinGecko API error: ${response.status} ${response.statusText}`);
     }
 
-    const data: BinanceTicker = await response.json();
+    const data: CoinGeckoResponse = await response.json();
 
     // Parse and format the data
     const priceData: PriceData = {
-      symbol: data.symbol,
-      price: parseFloat(data.lastPrice),
-      change24h: parseFloat(data.priceChange),
-      changePercent24h: parseFloat(data.priceChangePercent),
-      high24h: parseFloat(data.highPrice),
-      low24h: parseFloat(data.lowPrice),
-      volume24h: parseFloat(data.volume),
+      symbol: symbol,
+      price: data.market_data.current_price.usd,
+      change24h: data.market_data.price_change_24h,
+      changePercent24h: data.market_data.price_change_percentage_24h,
+      high24h: data.market_data.high_24h.usd,
+      low24h: data.market_data.low_24h.usd,
+      volume24h: data.market_data.total_volume.usd,
       timestamp: Date.now(),
     };
 
-    console.log(`[Binance API] ✅ Price fetched successfully: $${priceData.price.toFixed(2)}`);
-    console.log(`[Binance API] 24h Change: ${priceData.changePercent24h.toFixed(2)}%`);
+    console.log(`[Crypto API] ✅ Price fetched successfully: $${priceData.price.toFixed(2)}`);
+    console.log(`[Crypto API] 24h Change: ${priceData.changePercent24h.toFixed(2)}%`);
 
     return priceData;
   } catch (error) {
-    console.error('[Binance API] ❌ Failed to fetch price:', error);
-    throw new Error(`Failed to fetch ${symbol} price from Binance: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error('[Crypto API] ❌ Failed to fetch price:', error);
+    throw new Error(`Failed to fetch ${symbol} price from CoinGecko: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
@@ -124,15 +141,15 @@ export async function fetchPrice(symbol: string = 'BTCUSDT'): Promise<PriceData>
  */
 export async function fetchMultiplePrices(symbols: string[]): Promise<PriceData[]> {
   try {
-    console.log(`[Binance API] Fetching prices for ${symbols.length} symbols...`);
+    console.log(`[Crypto API] Fetching prices for ${symbols.length} symbols...`);
 
     const promises = symbols.map(symbol => fetchPrice(symbol));
     const results = await Promise.all(promises);
 
-    console.log(`[Binance API] ✅ Fetched ${results.length} prices successfully`);
+    console.log(`[Crypto API] ✅ Fetched ${results.length} prices successfully`);
     return results;
   } catch (error) {
-    console.error('[Binance API] ❌ Failed to fetch multiple prices:', error);
+    console.error('[Crypto API] ❌ Failed to fetch multiple prices:', error);
     throw error;
   }
 }
@@ -160,7 +177,7 @@ export function subscribeToPriceUpdates(
   callback: (data: PriceData) => void,
   interval: number = 5000
 ): () => void {
-  console.log(`[Binance API] Starting price subscription for ${symbol} (${interval}ms interval)`);
+  console.log(`[Crypto API] Starting price subscription for ${symbol} (${interval}ms interval)`);
 
   let isActive = true;
 
@@ -171,7 +188,7 @@ export function subscribeToPriceUpdates(
       const data = await fetchPrice(symbol);
       callback(data);
     } catch (error) {
-      console.error('[Binance API] Error in subscription:', error);
+      console.error('[Crypto API] Error in subscription:', error);
     }
 
     if (isActive) {
@@ -184,7 +201,7 @@ export function subscribeToPriceUpdates(
 
   // Return cleanup function
   return () => {
-    console.log(`[Binance API] Stopping price subscription for ${symbol}`);
+    console.log(`[Crypto API] Stopping price subscription for ${symbol}`);
     isActive = false;
   };
 }
@@ -205,16 +222,16 @@ export async function fetchPriceWithRetry(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[Binance API] Attempt ${attempt}/${maxRetries} to fetch ${symbol}`);
+      console.log(`[Crypto API] Attempt ${attempt}/${maxRetries} to fetch ${symbol}`);
       return await fetchPrice(symbol);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.warn(`[Binance API] Attempt ${attempt} failed:`, lastError.message);
+      console.warn(`[Crypto API] Attempt ${attempt} failed:`, lastError.message);
 
       if (attempt < maxRetries) {
         // Exponential backoff: 1s, 2s, 4s...
         const delay = Math.pow(2, attempt - 1) * 1000;
-        console.log(`[Binance API] Retrying in ${delay}ms...`);
+        console.log(`[Crypto API] Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

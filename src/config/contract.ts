@@ -913,9 +913,9 @@ export const GAS_LIMITS = {
  * Asset IDs for supported cryptocurrencies
  */
 export const ASSET_IDS = {
-  BTC: 1n,
+  BTC: 3n,
   ETH: 2n,
-  SOL: 3n,
+  SOL: 1n,
   BNB: 4n,
 } as const;
 
