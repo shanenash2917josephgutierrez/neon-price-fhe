@@ -54,10 +54,12 @@ export interface PriceData {
 
 /**
  * CoinGecko API base URL
- * Using Vite proxy to bypass CORS restrictions in development
- * Production builds should use direct API or backend proxy
+ * Development: Uses Vite proxy to bypass CORS
+ * Production: Calls CoinGecko API directly (CORS is supported)
  */
-const CRYPTO_API_BASE = '/api/crypto/api/v3';
+const CRYPTO_API_BASE = import.meta.env.DEV
+  ? '/api/crypto/api/v3'  // Development: use Vite proxy
+  : 'https://api.coingecko.com/api/v3';  // Production: direct API call
 
 /**
  * Map trading symbols to CoinGecko IDs
