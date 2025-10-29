@@ -10,6 +10,16 @@ A fully homomorphic encryption (FHE) powered decentralized application for makin
 - Claim winnings after market settlement
 - Experience a sci-fi themed terminal interface
 
+### 🚀 Live Demo
+
+**Production Deployment**: [https://neon-price-fhe.vercel.app](https://neon-price-fhe.vercel.app)
+
+The application is deployed on Vercel with:
+- ✅ Production-ready Vite build
+- ✅ Public access (authentication disabled)
+- ✅ Connected to Sepolia testnet
+- ✅ Optimized for performance (~800KB gzipped)
+
 ### Key Features
 
 - **🔐 Full Homomorphic Encryption**: All predictions are encrypted on-chain using Zama fhEVM
@@ -383,6 +393,10 @@ npm run export-abi
 
 ### Frontend Deployment (Vercel)
 
+**🌐 Live Deployment**: [https://neon-price-fhe.vercel.app](https://neon-price-fhe.vercel.app)
+
+The frontend is currently deployed to Vercel. To deploy updates:
+
 \`\`\`bash
 # 1. Update .env with deployed CONTRACT_ADDRESS
 # 2. Ensure VERCEL_TOKEN is set
@@ -390,11 +404,19 @@ npm run export-abi
 # Install Vercel CLI
 npm install -g vercel
 
-# Deploy
-vercel --prod
+# Deploy to production
+vercel --token $VERCEL_TOKEN --name neon-price-fhe --prod --yes
 
 # Or use the Vercel dashboard for GitHub integration
 \`\`\`
+
+**Deployment Configuration**:
+- Project Name: \`neon-price-fhe\`
+- Production URL: https://neon-price-fhe.vercel.app
+- Framework: Vite (auto-detected)
+- Build Command: \`vite build\`
+- Output Directory: \`dist\`
+- Authentication: Disabled for public access
 
 ## 📖 API Documentation
 
