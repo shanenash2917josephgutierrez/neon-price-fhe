@@ -15,17 +15,19 @@
  * @component
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { DigitalRain } from '@/components/DigitalRain';
 import { RangeSelector } from '@/components/terminal/RangeSelector';
 import { BetPanel } from '@/components/terminal/BetPanel';
 import { useTerminalStore } from '@/store/terminalStore';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_ASSET_ID } from '@/config/contract';
+import { fetchPriceWithRetry, subscribeToPriceUpdates, PriceData } from '@/services/binanceApi';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * Terminal Component
@@ -34,17 +36,91 @@ import { DEFAULT_ASSET_ID } from '@/config/contract';
  */
 const Terminal = () => {
   // State and hooks
-  const { currentPrice, setRange } = useTerminalStore();
+  const { setRange } = useTerminalStore();
   const { address, isConnected } = useAccount();
-  const [selectedRange, setSelectedRange] = useState<{ lower: number; upper: number } | null>(null);
+  const { toast } = useToast();
+  const [selectedRange, setSelectedRange] = useState<{ lower: number; upper: number; expiryTimestamp: number } | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(42879.24); // Default fallback
+  const [priceData, setPriceData] = useState<PriceData | null>(null);
+  const [isLoadingPrice, setIsLoadingPrice] = useState<boolean>(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  /**
+   * Fetch initial price and setup subscription
+   */
+  useEffect(() => {
+    console.log('[Terminal] Setting up price subscription...');
+
+    // Fetch initial price
+    const fetchInitialPrice = async () => {
+      try {
+        setIsLoadingPrice(true);
+        const data = await fetchPriceWithRetry('BTCUSDT', 3);
+        setCurrentPrice(data.price);
+        setPriceData(data);
+        setLastUpdate(new Date());
+        console.log('[Terminal] ✅ Initial price loaded:', data.price);
+      } catch (error) {
+        console.error('[Terminal] ❌ Failed to fetch initial price:', error);
+        toast({
+          title: "Price Fetch Error",
+          description: "Using fallback price. Real-time updates may be unavailable.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingPrice(false);
+      }
+    };
+
+    fetchInitialPrice();
+
+    // Subscribe to price updates (every 10 seconds)
+    const unsubscribe = subscribeToPriceUpdates('BTCUSDT', (data) => {
+      setCurrentPrice(data.price);
+      setPriceData(data);
+      setLastUpdate(new Date());
+      console.log('[Terminal] 🔄 Price updated:', data.price);
+    }, 10000);
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('[Terminal] Cleaning up price subscription');
+      unsubscribe();
+    };
+  }, [toast]);
+
+  /**
+   * Handle manual price refresh
+   */
+  const handleRefreshPrice = async () => {
+    try {
+      setIsLoadingPrice(true);
+      const data = await fetchPriceWithRetry('BTCUSDT', 2);
+      setCurrentPrice(data.price);
+      setPriceData(data);
+      setLastUpdate(new Date());
+      toast({
+        title: "Price Updated",
+        description: `BTC/USD: $${data.price.toLocaleString()}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Update Failed",
+        description: "Could not fetch latest price",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPrice(false);
+    }
+  };
 
   /**
    * Handle range selection from RangeSelector component
    * Updates both the global store and local state
    */
-  const handleRangeSelect = (lower: number, upper: number) => {
+  const handleRangeSelect = (lower: number, upper: number, expiryTimestamp: number) => {
     setRange(lower, upper);
-    setSelectedRange({ lower, upper });
+    setSelectedRange({ lower, upper, expiryTimestamp });
   };
 
   return (
@@ -84,6 +160,47 @@ const Terminal = () => {
           <p className="text-sm md:text-base text-muted-foreground font-mono">
             [ ENCRYPTED RANGE BETTING INTERFACE ]
           </p>
+
+          {/* Real-time Price Card */}
+          <div className="mt-4 p-3 md:p-4 border border-primary/30 rounded-lg bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-mono text-muted-foreground">
+                    BTC/USD LIVE
+                  </span>
+                  {priceData && (
+                    <span className={`text-xs font-mono ${priceData.changePercent24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {priceData.changePercent24h >= 0 ? '▲' : '▼'} {Math.abs(priceData.changePercent24h).toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl md:text-3xl font-bold font-mono text-primary price-flicker">
+                  ${isLoadingPrice ? '...' : currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                {priceData && (
+                  <div className="text-xs font-mono text-muted-foreground mt-1">
+                    24h: ${priceData.low24h.toFixed(2)} - ${priceData.high24h.toFixed(2)}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshPrice}
+                  disabled={isLoadingPrice}
+                  className="border-primary text-primary hover:bg-primary/10"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingPrice ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline ml-2">Refresh</span>
+                </Button>
+                <p className="text-xs text-muted-foreground font-mono mt-1">
+                  {lastUpdate.toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Connection Status Banner - Only shown when connected */}
           {isConnected && address && (
@@ -125,6 +242,7 @@ const Terminal = () => {
               <BetPanel
                 lowerBound={selectedRange.lower}
                 upperBound={selectedRange.upper}
+                expiryTimestamp={selectedRange.expiryTimestamp}
                 assetId={DEFAULT_ASSET_ID}
                 userAddress={address}
                 isConnected={isConnected}

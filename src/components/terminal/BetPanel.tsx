@@ -38,6 +38,8 @@ interface BetPanelProps {
   lowerBound: number;
   /** Upper price bound selected by user */
   upperBound: number;
+  /** Expiry timestamp in seconds (Unix timestamp) */
+  expiryTimestamp: number;
   /** Asset ID to bet on (e.g., BTC=1, ETH=2) */
   assetId: bigint;
   /** Connected wallet address */
@@ -55,6 +57,7 @@ interface BetPanelProps {
 export const BetPanel = ({
   lowerBound,
   upperBound,
+  expiryTimestamp,
   assetId,
   userAddress,
   isConnected,
@@ -239,18 +242,39 @@ export const BetPanel = ({
         {/* ============================================ */}
         {/* Selected Range Display */}
         {/* ============================================ */}
-        <div className="border-2 border-border rounded-lg p-3 md:p-4 bg-muted/20">
-          <div className="text-xs text-muted-foreground font-mono mb-2">
-            PREDICTION RANGE
+        <div className="border-2 border-border rounded-lg p-3 md:p-4 bg-muted/20 space-y-3">
+          <div>
+            <div className="text-xs text-muted-foreground font-mono mb-2">
+              PREDICTION RANGE
+            </div>
+            <div className="flex items-center justify-between font-mono">
+              <span className="text-base md:text-lg text-accent font-bold">
+                ${lowerBound.toFixed(2)}
+              </span>
+              <span className="text-muted-foreground mx-2">→</span>
+              <span className="text-base md:text-lg text-secondary font-bold">
+                ${upperBound.toFixed(2)}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between font-mono">
-            <span className="text-base md:text-lg text-accent font-bold">
-              ${lowerBound.toFixed(2)}
-            </span>
-            <span className="text-muted-foreground mx-2">→</span>
-            <span className="text-base md:text-lg text-secondary font-bold">
-              ${upperBound.toFixed(2)}
-            </span>
+
+          <div className="border-t border-border/50 pt-3">
+            <div className="text-xs text-muted-foreground font-mono mb-1">
+              EXPIRES ON
+            </div>
+            <div className="font-mono text-sm text-primary">
+              {new Date(expiryTimestamp * 1000).toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              })}
+            </div>
+            <div className="text-xs text-muted-foreground font-mono mt-1">
+              {Math.floor((expiryTimestamp - Date.now() / 1000) / 3600)} hours from now
+            </div>
           </div>
         </div>
 

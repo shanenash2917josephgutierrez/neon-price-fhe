@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,20 +8,35 @@ import { Button } from '@/components/ui/button';
 
 interface RangeSelectorProps {
   currentPrice: number;
-  onRangeSelect: (lower: number, upper: number) => void;
+  onRangeSelect: (lower: number, upper: number, expiryTimestamp: number) => void;
 }
+
+// Helper function to get minimum datetime (current time + 1 hour)
+const getMinDateTime = () => {
+  const now = new Date();
+  now.setHours(now.getHours() + 1);
+  return now.toISOString().slice(0, 16);
+};
+
+// Helper function to get default datetime (tomorrow at same time)
+const getDefaultDateTime = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow.toISOString().slice(0, 16);
+};
 
 // Range selector for price predictions with validation
 export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProps) => {
   const [lowerBound, setLowerBound] = useState<string>('');
   const [upperBound, setUpperBound] = useState<string>('');
+  const [expiryDateTime, setExpiryDateTime] = useState<string>(getDefaultDateTime());
   const [error, setError] = useState<string>('');
 
   const handleSubmit = () => {
     const lower = parseFloat(lowerBound);
     const upper = parseFloat(upperBound);
 
-    // Validation
+    // Validation - Price bounds
     if (isNaN(lower) || isNaN(upper)) {
       setError('Please enter valid numbers');
       return;
@@ -37,8 +52,29 @@ export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProp
       return;
     }
 
+    // Validation - Expiry datetime
+    if (!expiryDateTime) {
+      setError('Please select an expiry date and time');
+      return;
+    }
+
+    const expiryTimestamp = new Date(expiryDateTime).getTime();
+    const now = Date.now();
+    const oneHourFromNow = now + (60 * 60 * 1000);
+
+    if (expiryTimestamp < oneHourFromNow) {
+      setError('Expiry time must be at least 1 hour from now');
+      return;
+    }
+
+    const oneYearFromNow = now + (365 * 24 * 60 * 60 * 1000);
+    if (expiryTimestamp > oneYearFromNow) {
+      setError('Expiry time cannot be more than 1 year from now');
+      return;
+    }
+
     setError('');
-    onRangeSelect(lower, upper);
+    onRangeSelect(lower, upper, Math.floor(expiryTimestamp / 1000));
   };
 
   const spread = upperBound && lowerBound ? 
@@ -95,6 +131,26 @@ export const RangeSelector = ({ currentPrice, onRangeSelect }: RangeSelectorProp
               className="font-mono border-2 border-muted focus:border-secondary"
             />
           </div>
+        </div>
+
+        {/* Expiry datetime selector */}
+        <div className="space-y-2">
+          <Label htmlFor="expiry" className="font-mono text-sm flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
+            <Clock className="w-4 h-4 text-primary" />
+            PREDICTION EXPIRY DATE & TIME
+          </Label>
+          <Input
+            id="expiry"
+            type="datetime-local"
+            value={expiryDateTime}
+            min={getMinDateTime()}
+            onChange={(e) => setExpiryDateTime(e.target.value)}
+            className="font-mono border-2 border-muted focus:border-primary"
+          />
+          <p className="text-xs text-muted-foreground font-mono">
+            Select when your prediction should be settled (minimum: 1 hour from now)
+          </p>
         </div>
 
         {/* Spread indicator */}
